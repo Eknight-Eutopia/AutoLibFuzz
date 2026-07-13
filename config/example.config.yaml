@@ -6,5 +6,11 @@ llm:
 libafl:
   path: /<path>/<to>/LibAFL
 
+libafl_cc:
+  path: /<path>/<to>/AutoLibFuzz/externals/libafl_cc_template/target/release/libafl_cc
+
+harness:
+  path: /<path>/<to>/AutoLibFuzz/out
+
 misc:
   log_level: INFO
