@@ -51,14 +51,14 @@ main agent
 插桩完成后，主 agent 调用 `harness generator`，令其对目标库进行分析，寻找入口点，构写测试 harness，（需要编译成功）；
 主 agentd 运行 fuzzer 开始模糊测试。
 
-### instrumentor
+### instrument agent
 
 负责对目标库进行插桩编译：
 
 1. 给其 `README.md` 等内容，查看是否有编译的相关配置
 2. 生成并执行编译命令
 
-### harness generator
+### harness agent
 
 负责生成可用的 harness：
 1. 阅读代码以及文档，寻找目标库可调用的api信息（需要进行预处理缩小范围防止上下文过长）；
