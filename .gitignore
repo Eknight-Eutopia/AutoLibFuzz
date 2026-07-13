@@ -13,3 +13,6 @@ config/config.yaml
 out/*
 externals/*
 target/*
+
+!externals/libafl_cc_template
+externals/libafl_cc_template/target
