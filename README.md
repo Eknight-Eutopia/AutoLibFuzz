@@ -11,8 +11,7 @@ uv sync
 
 获取 libAFL 源码到 `./externals`
 ```shell
-cd ./externals
-git clone https://github.com/AFLplusplus/LibAFL.git
+git clone https://github.com/AFLplusplus/LibAFL.git ./externals/LibAFL
 ```
 
 按照 `./config/example.config.yaml` 修改配置
@@ -28,12 +27,10 @@ uv run main.py -t /path/to/target/lib
 
 以 `libgit2` 为例：
 ```shell
-cd target
-git clone https://github.com/libgit2/libgit2
-cd ..
+git clone https://github.com/libgit2/libgit2 ./target/libgit2
 uv run main.py -t ./target/libgit2
 ```
-然后就可以在 `out` 目录下看到生成的 harness 源码文件以及编译产物。
+等待运行完成，可以在 `out` 目录（config.yaml中配置项`harness.path`）下看到生成的 harness 源码文件以及编译产物。
 
 ## 智能体编排
 
