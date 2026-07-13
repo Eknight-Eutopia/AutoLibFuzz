@@ -1,0 +1,10 @@
+llm:
+  api_base:
+  api_key:
+  base_model:
+
+libafl:
+  path: /<path>/<to>/LibAFL
+
+misc:
+  log_level: INFO

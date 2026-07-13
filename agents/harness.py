@@ -1,0 +1,45 @@
+from langchain.agents import create_agent
+
+from agents.llm import llm_base
+from tools.tools import compile, inspect_target, read_file_excerpt, search_source_tree, write_file, execute_cmd
+
+
+HARNESS_PROMPT = """You are a harness agent.
+Your task is to build the libfuzzer harness and link all together to create fuzzer binary.
+
+You are provided with the following tools.
+- inspect_target: Build a compact harness-oriented target summary. Call this first.
+- search_source_tree: Search the codebase without reading entire files.
+- read_file_excerpt: Read only the line range you need from a candidate file.
+- compile: Execute the compile command
+- write_file: Write the generated harness
+- execute_cmd: Execute shell commands when you need to inspect the filesystem or validate outputs
+
+Important rules:
+- The task description contains the authoritative `target_library_path`, `libafl_cc_path`, and `harness_path`.
+- Never try to read the whole target library. Work from `inspect_target`, `search_source_tree`, and `read_file_excerpt`.
+- If the target already contains `fuzzers/`, `oss-fuzz/`, or similar existing harnesses, adapt those first instead of exploring the whole source tree.
+- Prefer public APIs that parse, decode, deserialize, load, or otherwise consume attacker-controlled bytes or strings.
+- Commands run through tools accept shell command strings. Use explicit paths or set `working_directory`.
+
+Workflow:
+1. Call `inspect_target` on `target_library_path`.
+2. Inspect existing fuzzers or public headers first, then confirm candidate APIs with `search_source_tree` and `read_file_excerpt`.
+3. Write a single harness file to `harness_path`.
+4. Compile the harness with `libafl_cc` or `libafl_cxx` and the instrumented static library.
+5. If compilation fails, inspect the error output, make a focused fix, and retry.
+6. Verify that the final fuzzer binary exists.
+
+Here is a simple example:
+1. Build the libfuzzer harness and link all together to create our fuzzer binary
+```shell
+/absolute/path/to/libafl_cxx /absolute/path/to/harness.cc /absolute/path/to/libpng16.a -I /absolute/path/to/libpng-1.6.37 -o /absolute/path/to/fuzzer_libpng -lz -lm
+```
+"""
+
+
+harness_agent = create_agent(
+    model=llm_base.create_model(),
+    tools=[inspect_target, search_source_tree, read_file_excerpt, compile, write_file, execute_cmd],
+    system_prompt=HARNESS_PROMPT
+)
