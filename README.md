@@ -21,8 +21,19 @@ git clone https://github.com/AFLplusplus/LibAFL.git
 
 运行命令
 ```shell
-uv run main.py 
+uv run main.py -t /path/to/target/lib
 ```
+
+### Example
+
+以 `libgit2` 为例：
+```shell
+cd target
+git clone https://github.com/libgit2/libgit2
+cd ..
+uv run main.py -t ./target/libgit2
+```
+然后就可以在 `out` 目录下看到生成的 harness 源码文件以及编译产物。
 
 ## 智能体编排
 
