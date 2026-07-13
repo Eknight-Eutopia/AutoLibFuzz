@@ -40,10 +40,10 @@ uv run main.py -t ./target/libgit2
 main agent
 - instrument agent
     - terminal tool (execute instrument commands)
-    - file tool (write lib.rs)
+    - file tool (read, write)
 - harness agent
     - terminal tool (compile harness)
-    - file tool (write harness.c)
+    - file tool (read, write, find)
 
 由主控 agent 控制整个模糊测试流程，根据当前的执行状态进行不同操作。目前设置两个子agent，instrumentor 自动化完成对目标库的代码插桩以及编译工作，生成目标库.a文件，用于后续的harness引用；harness generator则会基于目标库寻找入口点，构写测试用harness。
 
@@ -64,7 +64,7 @@ main agent
 ### harness generator
 
 负责生成可用的 harness：
-1. 则阅读代码以及文档，寻找目标库可调用的api信息；
+1. 阅读代码以及文档，寻找目标库可调用的api信息（需要进行预处理缩小范围防止上下文过长）；
 2. 基于 LibAFL 对每一个 api 构写 harness 进行测试；
 
 ## TODO
