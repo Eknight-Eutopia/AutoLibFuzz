@@ -1,4 +1,3 @@
-from langchain.tools import tool
 from langchain.agents import create_agent
 
 from agents.llm import llm_base
@@ -10,6 +9,7 @@ Your task is to instrument target library with libafl_cc.
 You are provided with the following tools.
 - compile: Execute the compile command
 - read_file: Read the content of a file
+- execute_cmd: Execute shell commands when you need to inspect the filesystem or validate outputs
 
 Check if there is `libafl_cc` executable file in state's libafl_cc_path.
 Read the README.md file in target library path at state's target_library_path, check if there is any instruction about `how to compile`.
@@ -26,6 +26,6 @@ This will build static lib at `libpng-1.6.37/.libs/libpng16.a`
 
 instrument_agent = create_agent(
     model=llm_base.create_model(),
-    tools=[compile, read_file, write_file, execute_cmd],
+    tools=[compile, read_file, execute_cmd],
     system_prompt=INSTRUMENT_PROMPT
 )

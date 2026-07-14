@@ -38,11 +38,17 @@ main agent
 - instrument agent
     - terminal tool (execute instrument commands)
     - file tool (read, write)
+- api agent
+    - search source tree
+    - file tool (read, write)
 - harness agent
     - terminal tool (compile harness)
     - file tool (read, write, find)
 
-由主控 agent 控制整个模糊测试流程，根据当前的执行状态进行不同操作。目前设置两个子agent，instrumentor 自动化完成对目标库的代码插桩以及编译工作，生成目标库.a文件，用于后续的harness引用；harness generator则会基于目标库寻找入口点，构写测试用harness。
+由主控 agent 控制整个模糊测试流程，根据当前的执行状态进行不同操作。目前设置三个子agent。
+- instrument agent 自动化完成对目标库的代码插桩以及编译工作，生成目标库.a文件，用于后续的harness引用；
+- api agent 自动化提取目标库中的可fuzz入口点，总结入口点到 `out/api_xxx.txt` 文件，记录入口函数，函数定义头文件，合法输入；
+- harness generator 基于以上的目标库.a文件以及 `out/api_xxx.txt` 编写harness。
 
 ### 主控 agent
 
@@ -66,6 +72,8 @@ main agent
 
 ## TODO
 
+- 纯 llm 分析 token 消耗过大，一次运行 10$-20$(gpt5.4)...
+    - 目前主要消耗点为 api 提取部分，该部分可以考虑引入工具自动化提取，刚好也能解决 api agent 无法覆盖全面 api 的问题
 - 提高 harness 接口覆盖
 - 种子，测试用例生成（llm 分析获取感兴趣的种子）；
 - harness 的交互顺序（多组api联合调用，llm分析获取感兴趣的调用顺序）；

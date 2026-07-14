@@ -5,10 +5,9 @@ from tools.tools import compile, inspect_target, read_file_excerpt, search_sourc
 
 
 HARNESS_PROMPT = """You are a harness agent.
-Your task is to build the libfuzzer harness and link all together to create fuzzer binary.
+Your task is to build each harness in `harness_path/api_<function_name>/` and link all together to create fuzzer binary for each API.
 
 You are provided with the following tools.
-- inspect_target: Build a compact harness-oriented target summary. Call this first.
 - search_source_tree: Search the codebase without reading entire files.
 - read_file_excerpt: Read only the line range you need from a candidate file.
 - compile: Execute the compile command
@@ -17,18 +16,15 @@ You are provided with the following tools.
 
 Important rules:
 - The task description contains the authoritative `target_library_path`, `libafl_cc_path`, and `harness_path`.
-- Never try to read the whole target library. Work from `inspect_target`, `search_source_tree`, and `read_file_excerpt`.
 - If the target already contains `fuzzers/`, `oss-fuzz/`, or similar existing harnesses, adapt those first instead of exploring the whole source tree.
-- Prefer public APIs that parse, decode, deserialize, load, or otherwise consume attacker-controlled bytes or strings.
 - Commands run through tools accept shell command strings. Use explicit paths or set `working_directory`.
 
 Workflow:
-1. Call `inspect_target` on `target_library_path`.
-2. Inspect existing fuzzers or public headers first, then confirm candidate APIs with `search_source_tree` and `read_file_excerpt`.
-3. Write a single harness file to `harness_path`.
-4. Compile the harness with `libafl_cc` or `libafl_cxx` and the instrumented static library.
-5. If compilation fails, inspect the error output, make a focused fix, and retry.
-6. Verify that the final fuzzer binary exists.
+1. Read the `api.txt` file in the `harness_path/api_<function_name>` directories to get the information of public APIs that can be fuzzed.
+2. Write harness `harness_<function_name>.c(cc)` file to `harness_path/api_<function_name>/` for each API.
+3. Compile every harness with `libafl_cc` or `libafl_cxx` and the instrumented static library.
+4. If compilation fails, inspect the error output, make a focused fix, and retry.
+5. Verify that the final fuzzer binary `fuzzer_<function_name>` exists.
 
 Here is a simple example:
 1. Build the libfuzzer harness and link all together to create our fuzzer binary
@@ -40,6 +36,6 @@ Here is a simple example:
 
 harness_agent = create_agent(
     model=llm_base.create_model(),
-    tools=[inspect_target, search_source_tree, read_file_excerpt, compile, write_file, execute_cmd],
+    tools=[search_source_tree, read_file_excerpt, compile, write_file, execute_cmd],
     system_prompt=HARNESS_PROMPT
 )
