@@ -7,17 +7,16 @@ use std::{env, path::PathBuf};
 
 use libafl::{
     corpus::{Corpus, InMemoryCorpus, OnDiskCorpus},
-    events::{setup_restarting_mgr_std, EventConfig, EventRestarter},
+    events::SimpleEventManager,
+    monitors::SimpleMonitor,
     executors::{inprocess::InProcessExecutor, ExitKind},
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     inputs::{BytesInput, HasTargetBytes},
-    monitors::MultiMonitor,
     mutators::{
         havoc_mutations::havoc_mutations,
         scheduled::{tokens_mutations, HavocScheduledMutator},
-        token_mutations::Tokens,
     },
     observers::{CanTrack, HitcountsMapObserver, StdMapObserver, TimeObserver},
     schedulers::{
@@ -25,7 +24,7 @@ use libafl::{
     },
     stages::{calibrate::CalibrationStage, power::StdPowerMutationalStage},
     state::{HasCorpus, StdState},
-    Error, HasMetadata,
+    Error,
 };
 use libafl_bolts::{
     rands::StdRand,
@@ -53,30 +52,15 @@ pub extern "C" fn libafl_main() {
     fuzz(
         &[PathBuf::from("./corpus")],
         PathBuf::from("./crashes"),
-        1337,
     )
     .expect("An error occurred while fuzzing");
 }
 
 /// The actual fuzzer
 #[cfg(not(test))]
-fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Result<(), Error> {
-    // 'While the stats are state, they are usually used in the broker - which is likely never restarted
-    let monitor = MultiMonitor::new(|s| println!("{s}"));
-
-    // The restarting state will spawn the same process again as child, then restarted it each time it crashes.
-    let (state, mut restarting_mgr) =
-        match setup_restarting_mgr_std(monitor, broker_port, EventConfig::AlwaysUnique) {
-            Ok(res) => res,
-            Err(err) => match err {
-                Error::ShuttingDown => {
-                    return Ok(());
-                }
-                _ => {
-                    panic!("Failed to setup the restarter: {err}");
-                }
-            },
-        };
+fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf) -> Result<(), Error> {
+    let monitor = SimpleMonitor::new(|s| println!("{}", s));
+    let mut mgr = SimpleEventManager::new(monitor);
 
     // Create an observation channel using the coverage map
     // TODO: This will break soon, fix me! See https://github.com/AFLplusplus/LibAFL/issues/2786
@@ -108,27 +92,15 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
     // A feedback to choose if an input is a solution or not
     let mut objective = feedback_or_fast!(CrashFeedback::new(), TimeoutFeedback::new());
 
-    // If not restarting, create a State from scratch
-    let mut state = state.unwrap_or_else(|| {
-        StdState::new(
-            // RNG
-            StdRand::new(),
-            // Corpus that will be evolved, we keep it in memory for performance
-            InMemoryCorpus::new(),
-            // Corpus in which we store solutions (crashes in this example),
-            // on disk so the user can get them after stopping the fuzzer
-            OnDiskCorpus::new(objective_dir).unwrap(),
-            // States of the feedbacks.
-            // The feedbacks can report the data that should persist in the State.
-            &mut feedback,
-            // Same for objective feedbacks
-            &mut objective,
-        )
-        .unwrap()
-    });
+    let mut state = StdState::new(
+        StdRand::new(),
+        InMemoryCorpus::<BytesInput>::new(),
+        OnDiskCorpus::<BytesInput>::new(objective_dir)?,
+        &mut feedback,
+        &mut objective,
+    )?;
 
-    println!("We're a client, let's fuzz :)");
-
+    println!("Standalone fuzzer started :)");
 
     // Setup a basic mutator with a mutational stage
 
@@ -176,7 +148,7 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
         tuple_list!(edges_observer, time_observer),
         &mut fuzzer,
         &mut state,
-        &mut restarting_mgr,
+        &mut mgr,
         Duration::new(10, 0),
     )?;
     // 10 seconds timeout
@@ -191,7 +163,7 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
     // In case the corpus is empty (on first run), reset
     if state.must_load_initial_inputs() {
         state
-            .load_initial_inputs(&mut fuzzer, &mut executor, &mut restarting_mgr, corpus_dirs)
+            .load_initial_inputs(&mut fuzzer, &mut executor, &mut mgr, corpus_dirs)
             .unwrap_or_else(|_| panic!("Failed to load initial corpus at {:?}", &corpus_dirs));
         println!("We imported {} inputs from disk.", state.corpus().count());
     }
@@ -200,18 +172,14 @@ fn fuzz(corpus_dirs: &[PathBuf], objective_dir: PathBuf, broker_port: u16) -> Re
     // Each fuzz_one will internally do many executions of the target.
     // If your target is very instable, setting a low count here may help.
     // However, you will lose a lot of performance that way.
-    let iters = 1_000_000;
+    let iters = u64::MAX;
     fuzzer.fuzz_loop_for(
         &mut stages,
         &mut executor,
         &mut state,
-        &mut restarting_mgr,
+        &mut mgr,
         iters,
     )?;
-
-    // It's important, that we store the state before restarting!
-    // Else, the parent will not respawn a new child and quit.
-    restarting_mgr.on_restart(&mut state)?;
 
     Ok(())
 }
